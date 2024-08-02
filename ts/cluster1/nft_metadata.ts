@@ -1,7 +1,7 @@
-import wallet from "../wba-wallet.json"
-import { createUmi } from "@metaplex-foundation/umi-bundle-defaults"
-import { createGenericFile, createSignerFromKeypair, signerIdentity } from "@metaplex-foundation/umi"
-import { irysUploader } from "@metaplex-foundation/umi-uploader-irys"
+import wallet from "./wallet/wba-wallet.json";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { createGenericFile, createSignerFromKeypair, signerIdentity } from "@metaplex-foundation/umi";
+import { irysUploader } from "@metaplex-foundation/umi-uploader-irys";
 
 // Create a devnet connection
 const umi = createUmi('https://api.devnet.solana.com');
@@ -14,32 +14,42 @@ umi.use(signerIdentity(signer));
 
 (async () => {
     try {
-        // Follow this JSON structure
-        // https://docs.metaplex.com/programs/token-metadata/changelog/v1.0#json-structure
+        // Image URI
+        const imageUri = 'https://arweave.net/mvrjlFa_rmOTCgI32xCWYK3VuZt9RbMFW9o4bYbW5D0';
 
-        // const image = ???
-        // const metadata = {
-        //     name: "?",
-        //     symbol: "?",
-        //     description: "?",
-        //     image: "?",
-        //     attributes: [
-        //         {trait_type: '?', value: '?'}
-        //     ],
-        //     properties: {
-        //         files: [
-        //             {
-        //                 type: "image/png",
-        //                 uri: "?"
-        //             },
-        //         ]
-        //     },
-        //     creators: []
-        // };
-        // const myUri = ???
-        // console.log("Your image URI: ", myUri);
-    }
-    catch(error) {
+        // Metadata JSON structure
+        const metadata = {
+            name: "Ritik Rug NFT",
+            symbol: "RRT",
+            description: "This is a Rug NFT created by Ritik Bhatt at wba turbin3 cohort Q3",
+            image: imageUri,
+            attributes: [
+                { trait_type: 'Background', value: 'Blue' },
+                { trait_type: 'Eyes', value: 'Green' }
+            ],
+            properties: {
+                files: [
+                    {
+                        type: "image/png",
+                        uri: imageUri
+                    }
+                ]
+            },
+            creators: []
+        };
+
+        // Convert metadata to generic file
+        const metadataBuffer = Buffer.from(JSON.stringify(metadata));
+        const metadataFile = createGenericFile(metadataBuffer, 'metadata.json', {
+            contentType: "application/json"
+        });
+
+        // Upload metadata
+        const [metadataUri] = await umi.uploader.upload([metadataFile]);
+        console.log("Your metadata URI: ", metadataUri);
+    } catch (error) {
         console.log("Oops.. Something went wrong", error);
     }
 })();
+
+// success -> Your metadata URI:  https://arweave.net/YZZYkANQlv8bQcpueYOisU5-o5eCmejr6ZcFLlQDCEE
