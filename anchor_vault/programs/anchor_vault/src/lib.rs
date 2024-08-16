@@ -42,7 +42,7 @@ impl<'info> Initialize<'info>  {
 }
 
 #[derive(Accounts)]
-pub struct Deposit<'info> {
+pub struct Payments<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     #[account(
@@ -59,7 +59,7 @@ pub struct Deposit<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> Deposit<'info> {
+impl<'info> Payments<'info> {
     pub fn deposit(&mut self, amount: u64) -> Result<()> {
 
         let cpi_program = self.system_program.to_account_info();
@@ -70,6 +70,30 @@ impl<'info> Deposit<'info> {
         };
 
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        transfer(cpi_ctx, amount)?;
+
+        Ok(())
+    }
+
+    pub fn withdraw(&mut self, amount: u64) -> Result<()> {
+
+        let cpi_program = self.system_program.to_account_info();
+
+        let cpi_accounts = Transfer {
+            from: self.vault.to_account_info(),
+            to: self.user.to_account_info(),
+        };
+
+        let seeds = &[
+            b"vault",  // byte representation of vault
+            self.state.to_account_info().key.as_ref(),
+            &[self.state.vault_bump]
+        ];  // array of references to byte arrays
+
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
 
         transfer(cpi_ctx, amount)?;
 
