@@ -1,4 +1,7 @@
-use anchor_lang::{prelude::*, system_program::{transfer, Transfer}};
+use anchor_lang::{
+    prelude::*,
+    system_program::{transfer, Transfer},
+};
 
 declare_id!("vF7jhRztdWk47aQkYwHJa3Gfo4FwLyUXngYhy2PdAEs");
 
@@ -32,7 +35,7 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> Initialize<'info>  {
+impl<'info> Initialize<'info> {
     pub fn initialize(&mut self, bumps: &InitializeBumps) -> Result<()> {
         self.state.vault_bump = bumps.vault;
         self.state.state_bump = bumps.state;
@@ -61,7 +64,6 @@ pub struct Payments<'info> {
 
 impl<'info> Payments<'info> {
     pub fn deposit(&mut self, amount: u64) -> Result<()> {
-
         let cpi_program = self.system_program.to_account_info();
 
         let cpi_accounts = Transfer {
@@ -77,7 +79,6 @@ impl<'info> Payments<'info> {
     }
 
     pub fn withdraw(&mut self, amount: u64) -> Result<()> {
-
         let cpi_program = self.system_program.to_account_info();
 
         let cpi_accounts = Transfer {
@@ -86,16 +87,64 @@ impl<'info> Payments<'info> {
         };
 
         let seeds = &[
-            b"vault",  // byte representation of vault
+            b"vault", // byte representation of vault
             self.state.to_account_info().key.as_ref(),
-            &[self.state.vault_bump]
-        ];  // array of references to byte arrays
+            &[self.state.vault_bump],
+        ]; // array of references to byte arrays
 
         let signer_seeds = &[&seeds[..]];
 
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
 
         transfer(cpi_ctx, amount)?;
+
+        Ok(())
+    }
+}
+
+
+#[derive(Accounts)]
+pub struct Close<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [b"vault", state.key().as_ref()],
+        bump = state.vault_bump,
+    )]
+    pub vault: SystemAccount<'info>,
+    #[account(
+        mut,
+        close = user,
+        seeds = [b"state", user.key().as_ref()],
+        bump = state.state_bump,
+    )]
+    pub state: Account<'info, VaultState>,
+    pub system_program: Program<'info, System>,
+}
+
+impl<'info> Close<'info> {
+    pub fn close(&mut self) -> Result<()> {
+        let cpi_program = self.system_program.to_account_info();
+
+        let cpi_accounts = Transfer {
+            from: self.vault.to_account_info(),
+            to: self.user.to_account_info(),
+        };
+
+        let balance = self.vault.get_lamports();
+
+        let seeds = &[
+            b"vault", // byte representation of vault
+            self.state.to_account_info().key.as_ref(),
+            &[self.state.vault_bump],
+        ]; // array of references to byte arrays
+
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+
+        transfer(cpi_ctx, balance)?;
 
         Ok(())
     }
