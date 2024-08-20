@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::AssociatedToken, token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked}
+    associated_token::AssociatedToken, token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked, CloseAccount, close_account}
 };
 
 use crate::state::Escrow;
@@ -67,6 +67,45 @@ impl<'info> Take<'info> {
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
 
         transfer_checked(cpi_ctx, self.escrow.receive, self.mint_b.decimals)?;
+
+        Ok(())
+    }
+
+    pub fn withdraw_and_close_vault(&mut self) -> Result<()> {
+        let seeds = &[
+            b"escrow", // byte representation of escrow
+            self.maker.to_account_info().key.as_ref(),
+            &self.escrow.seed.to_le_bytes()[..],
+            &[self.escrow.bump],
+        ]; // array of references to byte arrays
+        
+        let cpi_program = self.token_program.to_account_info();
+
+        let cpi_accounts = TransferChecked {
+            from: self.vault.to_account_info(),
+            to: self.taker_ata_a.to_account_info(),
+            authority: self.escrow.to_account_info(),
+            mint: self.mint_a.to_account_info(),
+        };
+
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+
+        transfer_checked(cpi_ctx, self.vault.amount, self.mint_a.decimals)?;
+
+        // Now we will be closing the vault, we will be doing a CPI to the token program for closing this vault
+        let accounts = CloseAccount {
+            account: self.vault.to_account_info(),
+            destination: self.taker.to_account_info(),  // where the lamports will go after deletion of TokenAccount
+            authority: self.escrow.to_account_info(),
+        };
+
+        let cpi_program = self.token_program.to_account_info();
+
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, accounts, signer_seeds);
+
+        close_account(cpi_ctx)?;
 
         Ok(())
     }
