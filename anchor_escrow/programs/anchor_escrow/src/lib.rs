@@ -18,4 +18,11 @@ pub mod anchor_escrow {
 
         Ok(())
     }
+
+    pub fn complete_escrow(ctx: Context<Take>) -> Result<()> {
+        ctx.accounts.deposit()?;
+        ctx.accounts.withdraw_and_close_vault()?;
+
+        Ok(())
+    }
 }
